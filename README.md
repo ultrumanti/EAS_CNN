@@ -1,5 +1,7 @@
-# Welcome to GitHub Desktop!
+We propose an automatic design method for semantic segmentation models based on a restricted search space and improved GA, named Evolvable Architecture Search CNN (EAS-CNN), to optimize the network both in terms of module structure 
 
-This is your README. READMEs are where you can communicate what your project is and how to use it.
+The training and testing code can refer to GeoSeg(https://github.com/WangLibo1995/GeoSeg).
 
-Write your name on line 6, save it, and then head back to GitHub Desktop.
+
+
+
