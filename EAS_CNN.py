@@ -503,10 +503,6 @@ class EV_Unet(nn.Module):
         self.skblock0_1 = ChannelAttention(channels[0] * 4, channels[0] * 1, 16)
         self.skblock0_2 = ChannelAttention(channels[0] * 3, channels[0] * 1, 16)
 
-        self.conv_deco_0_1 = nn.Sequential(
-            CNN_Block(channels[0], channels[0], self.model_settings['decoder_output_conv']),
-        )
-
         self.attention0_0 = PAM_CAM_Layer(channels[0])
         self.conv_deco_0_0 = nn.Conv2d(channels[0], self.class_num, kernel_size=1, stride=1)
         self.finaldeconv1 = nn.ConvTranspose2d(channels[0], channels_end, 4, 2, 1)
