@@ -12,7 +12,9 @@ from torchvision import models
 def l2_norm(x):
     return torch.einsum("bcn, bn->bcn", x, 1 / torch.norm(x, p=2, dim=-2))
 
+
 nonlinearity = partial(F.relu, inplace=True)
+
 
 class ConvBNReLU(nn.Module):
     def __init__(self, in_chan, out_chan, ks=3, stride=1, padding=1, *args, **kwargs):
@@ -27,17 +29,17 @@ class ConvBNReLU(nn.Module):
             BatchNorm2d(out_chan),
             nn.ReLU(inplace=False)
         )
+
     def forward(self, x):
         x = self.conv(x)
         return x
+
 
 class PAM_Module(nn.Module):
     def __init__(self, in_places, scale=8, eps=1e-6):
         super(PAM_Module, self).__init__()
         self.gamma = Parameter(torch.zeros(1))
         self.in_places = in_places
-        # self.exp_feature = exp_feature_map
-        # self.tanh_feature = tanh_feature_map
         self.l2_norm = l2_norm
         self.eps = eps
         self.query_conv = Conv2d(in_channels=in_places, out_channels=in_places // scale, kernel_size=1)
@@ -45,7 +47,6 @@ class PAM_Module(nn.Module):
         self.value_conv = Conv2d(in_channels=in_places, out_channels=in_places, kernel_size=1)
 
     def forward(self, x):
-        # Apply the feature map to the queries and keys
         batch_size, chnnels, width, height = x.shape
         Q = self.query_conv(x).view(batch_size, -1, width * height)
         K = self.key_conv(x).view(batch_size, -1, width * height)
@@ -83,6 +84,7 @@ class CAM_Module(nn.Module):
         out = self.gamma * out + x
         return out
 
+
 class PAM_CAM_Layer(nn.Module):
     def __init__(self, in_ch):
         super(PAM_CAM_Layer, self).__init__()
@@ -91,6 +93,7 @@ class PAM_CAM_Layer(nn.Module):
 
     def forward(self, x):
         return self.PAM(x) + self.CAM(x)
+
 
 class ChannelAttention(nn.Module):
     def __init__(self, in_planes, out_planes, ratio=2):
@@ -113,10 +116,12 @@ class ChannelAttention(nn.Module):
         del avg_out, max_out
         return x * self.sigmoid(out)
 
+
 def conv3x3(in_planes, out_planes, kernel_size=3, stride=1, padding=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride,
                      padding=padding, bias=False)
+
 
 def conv1x1(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
     """1x1 convolution"""
@@ -124,6 +129,7 @@ def conv1x1(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
         nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False),
         nn.BatchNorm2d(out_planes)
     )
+
 
 class CNN_Block(nn.Module):
     def __init__(self, in_planes, out_planes, flag_cov):
@@ -226,7 +232,6 @@ class EV_Unet(nn.Module):
         self.firstmaxpool = resnet.maxpool
         self.conv1 = resnet.layer1
 
-        # <editor-fold desc=" encoder_1 ">
         self.conv12 = nn.Sequential(
             nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
             conv1x1(channels[0], channels[1]),
@@ -242,9 +247,7 @@ class EV_Unet(nn.Module):
             conv1x1(channels[2], channels[3]),
             CNN_Block(channels[3], channels[3], self.model_settings['Encoder_1'])
         )
-        # </editor-fold>
 
-        # <editor-fold desc=" encoder_2 ">
         self.conv2 = resnet.layer2
 
         self.conv23 = nn.Sequential(
@@ -257,9 +260,7 @@ class EV_Unet(nn.Module):
             conv1x1(channels[2], channels[3]),
             CNN_Block(channels[3], channels[3], self.model_settings['Encoder_2'])
         )
-        # </editor-fold>
 
-        # <editor-fold desc=" encoder_3 ">
         self.conv3 = resnet.layer3
 
         self.conv34 = nn.Sequential(
@@ -267,13 +268,9 @@ class EV_Unet(nn.Module):
             conv1x1(channels[2], channels[3]),
             CNN_Block(channels[3], channels[3], self.model_settings['Encoder_3'])
         )
-        # </editor-fold>
 
-        # <editor-fold desc=" encoder_4 ">
         self.conv4 = resnet.layer4
-        # </editor-fold>
 
-        # <editor-fold desc=" encoder_5 ">
         self.conv5_redu = resnet.layer4
 
         self.conv5_1_redu = nn.Sequential(
@@ -288,14 +285,10 @@ class EV_Unet(nn.Module):
         self.conv5_1 = nn.Sequential(
             CNN_Block(channels[4], channels[4], self.model_settings['Encoder_5'])
         )
-        # </editor-fold>
 
-        # <editor-fold desc=" encoder_5 ">
         self.attention5_to_5_redu = PAM_CAM_Layer(channels[3])
         self.attention5_to_5 = PAM_CAM_Layer(channels[4])
-        # </editor-fold>
 
-        # <editor-fold desc=" decoder_4 ">
         self.attention4_0 = PAM_CAM_Layer(channels[3])
 
         self.deconv4 = nn.ConvTranspose2d(channels[4], channels[3], kernel_size=(2, 2), stride=(2, 2))
@@ -343,9 +336,7 @@ class EV_Unet(nn.Module):
             CNN_Block(channels[3] * 2, channels[3], self.model_settings['to_decoder_4_conv']),
             CNN_Block(channels[3], channels[3], self.model_settings['to_decoder_4_conv']),
         )
-        # </editor-fold>
 
-        # <editor-fold desc=" decoder_3 ">
         self.deconv3 = nn.ConvTranspose2d(channels[3], channels[2], kernel_size=(2, 2), stride=(2, 2))
         self.deconv32 = nn.ConvTranspose2d(channels[2], channels[1], kernel_size=(2, 2), stride=(2, 2))
         self.deconv31 = nn.ConvTranspose2d(channels[1], channels[0], kernel_size=(2, 2), stride=(2, 2))
@@ -384,9 +375,7 @@ class EV_Unet(nn.Module):
             CNN_Block(channels[2], channels[2], self.model_settings['to_decoder_3_conv']),
         )
         self.AABlock_deco_3_4 = AttentionAggregationModule(channels[2] * (self.count_list_3), channels[2] * 2)
-        # </editor-fold>
 
-        # <editor-fold desc=" decoder_2 ">
         self.deconv2 = nn.ConvTranspose2d(channels[2], channels[1], kernel_size=(2, 2), stride=(2, 2))
         self.deconv21 = nn.ConvTranspose2d(channels[1], channels[0], kernel_size=(2, 2), stride=(2, 2))
 
@@ -424,9 +413,7 @@ class EV_Unet(nn.Module):
             CNN_Block(channels[1] * 2, channels[1], self.model_settings['to_decoder_2_conv']),
             CNN_Block(channels[1], channels[1], self.model_settings['to_decoder_2_conv']),
         )
-        # </editor-fold>
 
-        # <editor-fold desc=" decoder_1 ">
         self.deconv1 = nn.ConvTranspose2d(channels[1], channels[0], kernel_size=(2, 2), stride=(2, 2))
         self.attention1_0 = PAM_CAM_Layer(channels[0])
         self.attention1_1 = PAM_CAM_Layer(channels[0])
@@ -466,7 +453,7 @@ class EV_Unet(nn.Module):
 
         self.attention1_2 = PAM_CAM_Layer(channels[0] * self.count_list_1)
         self.skblock1_2 = ChannelAttention(channels[0] * self.count_list_1, channels[0] * 2, 16)
-        
+
         self.AABlock_1_1 = AttentionAggregationModule(channels[0] * self.count_list_1, channels[0])
         self.conv_deco_1_AAB = nn.Sequential(
             CNN_Block(channels[0], channels[0], self.model_settings['to_decoder_1_conv']),
@@ -496,7 +483,6 @@ class EV_Unet(nn.Module):
             CNN_Block(channels[0], channels[0], self.model_settings['to_decoder_1_conv']),
         )
 
-        # </editor-fold>)
         self.AABlock = AttentionAggregationModule(channels[0] * 4, channels[0])
         self.AABlock_redu = AttentionAggregationModule(channels[0] * 3, channels[0])
 
@@ -512,11 +498,9 @@ class EV_Unet(nn.Module):
         self.finalconv3 = nn.Conv2d(channels_end, self.class_num, 3, padding=1)
 
     def forward(self, x):
-        # <editor-fold desc=" encoder ">
         x1 = self.firstconv(x)
         x1 = self.firstbn(x1)
         x1 = self.firstrelu(x1)
-        # x1 = self.firstmaxpool(x1)
         conv1 = self.conv1(x1)
         conv12 = self.conv12(conv1)
         conv13 = self.conv13(conv12)
@@ -530,7 +514,6 @@ class EV_Unet(nn.Module):
         if self.model_settings['layer_num'] == "full":
             conv34 = self.conv34(conv3)
             conv4 = self.conv4(conv3)
-        # </editor-fold>
 
         if self.model_settings['layer_num'] == "reduce_one":
             if (self.model_settings['encoder_2_decoder_5'] == "att_pa"):
@@ -547,9 +530,7 @@ class EV_Unet(nn.Module):
                 conv5 = self.conv5_1(conv5)
             elif self.model_settings['encoder_2_decoder_5'] == "skip_att":
                 conv5 = self.conv5(conv4)
-        # </editor-fold>
 
-        # <editor-fold desc=" decoder_4 ">
         if self.model_settings['layer_num'] == "full":
             deconv4 = self.deconv4(conv5)
             deconv43 = self.deconv43(deconv4)
@@ -861,9 +842,7 @@ class EV_Unet(nn.Module):
                 elif (self.model_settings['to_decoder_4_both_Connection_att'] == "att_aam"):
                     deconv4 = self.AABlock_deco_4_4_add(deconv4)
                     deconv4 = self.conv_deco_4_4(deconv4)
-        # </editor-fold>
 
-        # <editor-fold desc=" decoder_3 ">
         if self.model_settings['layer_num'] == "full":
             deconv3 = self.deconv3(deconv4)
             deconv32 = self.deconv32(deconv3)
@@ -1185,9 +1164,7 @@ class EV_Unet(nn.Module):
             elif (self.model_settings['to_decoder_3_both_Connection_att'] == "att_aam"):
                 deconv3 = self.AABlock_deco_3_4(deconv3)
                 deconv3 = self.conv_deco_3_4(deconv3)
-        # </editor-fold>
 
-        # <editor-fold desc=" decoder_2 ">
         deconv2 = self.deconv2(deconv3)
         deconv21 = self.deconv21(deconv2)
         if (self.model_settings['to_decoder_2'] == "single"):
@@ -1451,7 +1428,6 @@ class EV_Unet(nn.Module):
                             deconv2 = torch.cat((deconv2, deconv32), 1)
                             deconv2 = self.conv_deco_2_2(deconv2)
                         elif (self.model_settings['to_decoder_2_both_Connection_att'] == "att_aam"):
-                            # print(deconv2.shape)
                             deconv2 = self.AABlock_2_add(deconv2)
                             deconv2 = torch.cat((deconv2, deconv32), 1)
                             deconv2 = self.conv_deco_2_2(deconv2)
@@ -1499,9 +1475,7 @@ class EV_Unet(nn.Module):
             elif (self.model_settings['to_decoder_2_both_Connection_att'] == "att_aam"):
                 deconv2 = self.AABlock_deco_2_4(deconv2)
                 deconv2 = self.conv_deco_2_4(deconv2)
-        # </editor-fold>
 
-        # <editor-fold desc=" decoder_1 ">
         deconv1 = self.deconv1(deconv2)
         if (self.model_settings['to_decoder_1'] == "single"):
             if (self.model_settings['to_decoder_1_sin_att'] == "att"):
@@ -1811,9 +1785,7 @@ class EV_Unet(nn.Module):
                 deconv1 = self.conv_deco_1_4_add(deconv1)
             elif (self.model_settings['to_decoder_1_both_Connection_att'] == "no_att"):
                 deconv1 = self.conv_deco_1_5(deconv1)
-        # </editor-fold>
 
-        # <editor-fold desc=" output ">
         if (self.model_settings['decoder_output_att'] == "PAM_CAM"):
             output = self.attention0_0(deconv1)
             out = self.finaldeconv1(output)
@@ -1828,5 +1800,5 @@ class EV_Unet(nn.Module):
             out = self.finalconv2(out)
             out = self.finalrelu2(out)
             output = self.finalconv3(out)
-        # </editor-fold>
+
         return output
