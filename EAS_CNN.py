@@ -215,9 +215,9 @@ class AttentionAggregationModule(nn.Module):
         return feat_out
 
 
-class EV_Unet(nn.Module):
+class EAS_CNN(nn.Module):
     def __init__(self, band_num, class_num, model_settings):
-        super(EV_Unet, self).__init__()
+        super(EAS_CNN, self).__init__()
         self.band_num = band_num
         self.class_num = class_num
         self.name = 'EV_Unet'
